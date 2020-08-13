@@ -46,6 +46,7 @@ struct tgtadm_req {
 	int32_t tid;
 	uint64_t sid;
 	uint64_t lun;
+	uint64_t control_lun;
 	uint32_t cid;
 	uint32_t host_no;
 	uint32_t device_type;

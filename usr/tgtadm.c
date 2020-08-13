@@ -106,6 +106,7 @@ struct option const long_options[] = {
 	{"sid", required_argument, NULL, 's'},
 	{"cid", required_argument, NULL, 'c'},
 	{"lun", required_argument, NULL, 'l'},
+	{"control_lun", required_argument, NULL, 'A'},
 	{"name", required_argument, NULL, 'n'},
 	{"value", required_argument, NULL, 'v'},
 	{"backing-store", required_argument, NULL, 'b'},
@@ -129,7 +130,7 @@ struct option const long_options[] = {
 };
 
 static char *short_options =
-		"dhVL:o:m:t:s:c:l:n:v:b:E:f:y:T:I:Q:u:p:H:F:P:B:Y:O:C:S:";
+		"dhVL:o:m:t:s:c:A:l:n:v:b:E:f:y:T:I:Q:u:p:H:F:P:B:Y:O:C:S:";
 
 static void usage(int status)
 {
@@ -501,7 +502,7 @@ int main(int argc, char **argv)
 	int ch, longindex, rc;
 	int op, tid, mode, dev_type, ac_dir;
 	uint32_t cid, hostno;
-	uint64_t sid, lun, force;
+	uint64_t sid, lun, control_lun, force;
 	char *name, *value, *path, *targetname, *address, *iqnname, *targetOps;
 	char *portalOps, *bstype, *bsopts;
 	char *bsoflags;
@@ -514,6 +515,7 @@ int main(int argc, char **argv)
 	op = tid = mode = -1;
 	cid = hostno = sid = 0;
 	lun = UINT64_MAX;
+	control_lun = 0;
 
 	rc = 0;
 	dev_type = TYPE_DISK;
@@ -555,6 +557,11 @@ int main(int argc, char **argv)
 			break;
 		case 'l':
 			rc = str_to_int(optarg, lun);
+			if (rc)
+				bad_optarg(rc, ch, optarg);
+			break;
+		case 'A':
+			rc = str_to_int(optarg, control_lun);
 			if (rc)
 				bad_optarg(rc, ch, optarg);
 			break;
@@ -689,7 +696,7 @@ int main(int argc, char **argv)
 		}
 		switch (op) {
 		case OP_NEW:
-			rc = verify_mode_params(argc, argv, "LmotTC");
+			rc = verify_mode_params(argc, argv, "ALmotTC");
 			if (rc) {
 				eprintf("target mode: option '-%c' is not "
 					"allowed/supported\n", rc);
@@ -942,6 +949,7 @@ int main(int argc, char **argv)
 	req->sid = sid;
 	req->cid = cid;
 	req->lun = lun;
+	req->control_lun = control_lun;
 	req->mode = mode;
 	req->host_no = hostno;
 	req->device_type = dev_type;

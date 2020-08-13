@@ -100,7 +100,7 @@ static tgtadm_err target_mgmt(int lld_no, struct mgmt_task *mtask)
 
 	switch (req->op) {
 	case OP_NEW:
-		adm_err = tgt_target_create(lld_no, req->tid, mtask->req_buf);
+		adm_err = tgt_target_create(lld_no, req->tid, mtask->req_buf, mtask->req.control_lun);
 		break;
 	case OP_DELETE:
 		adm_err = tgt_target_destroy(lld_no, req->tid, req->force);

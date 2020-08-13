@@ -725,15 +725,14 @@ tgtadm_err tgt_device_destroy(int tid, uint64_t lun, int force)
 
 	dprintf("%u %" PRIu64 "\n", tid, lun);
 
-	/* lun0 is special */
-	if (!lun && !force)
-		return TGTADM_INVALID_REQUEST;
-
 	lu = __device_lookup(tid, lun, &target);
 	if (!lu) {
 		eprintf("device %" PRIu64 " not found\n", lun);
 		return TGTADM_NO_LUN;
 	}
+
+	if ((lu->attrs.device_type == TYPE_RAID) && !force)
+	  return TGTADM_INVALID_REQUEST;
 
 	if (!list_empty(&lu->cmd_queue.queue) || lu->cmd_queue.active_cmd)
 		return TGTADM_LUN_ACTIVE;
@@ -1110,6 +1109,7 @@ int target_cmd_queue(int tid, struct scsi_cmd *cmd)
 {
 	struct target *target;
 	struct it_nexus *itn;
+	struct scsi_lu *lu;
 	uint64_t dev_id, itn_id = cmd->cmd_itn_id;
 
 	itn = it_nexus_lookup(tid, itn_id);
@@ -1125,11 +1125,15 @@ int target_cmd_queue(int tid, struct scsi_cmd *cmd)
 	cmd->dev_id = dev_id;
 	dprintf("%p %x %" PRIx64 "\n", cmd, cmd->scb[0], dev_id);
 	cmd->dev = device_lookup(target, dev_id);
-	/* use LUN0 */
-	if (!cmd->dev)
-		cmd->dev = list_first_entry(&target->device_list,
-					    struct scsi_lu,
-					    device_siblings);
+	/* use controller LUN */
+	if (!cmd->dev) {
+		list_for_each_entry(lu, &target->device_list, device_siblings) {
+			if (lu->attrs.device_type == TYPE_RAID) {
+				cmd->dev = lu;
+				break;
+			}
+		}
+	}
 
 	cmd->itn_lu_info = it_nexus_lu_info_lookup(itn, cmd->dev->lun);
 
@@ -2118,7 +2122,7 @@ char *tgt_targetname(int tid)
 
 #define DEFAULT_NR_ACCOUNT 16
 
-tgtadm_err tgt_target_create(int lld, int tid, char *args)
+tgtadm_err tgt_target_create(int lld, int tid, char *args, uint64_t control_lun)
 {
 	struct target *target, *pos;
 	char *p, *q, *targetname = NULL;
@@ -2201,7 +2205,7 @@ tgtadm_err tgt_target_create(int lld, int tid, char *args)
 	INIT_LIST_HEAD(&target->iqn_acl_list);
 	INIT_LIST_HEAD(&target->it_nexus_list);
 
-	tgt_device_create(tid, TYPE_RAID, 0, NULL, 0);
+	tgt_device_create(tid, TYPE_RAID, control_lun, NULL, 0);
 
 	if (tgt_drivers[lld]->target_create)
 		tgt_drivers[lld]->target_create(target);
